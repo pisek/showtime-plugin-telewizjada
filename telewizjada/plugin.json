@@ -1,0 +1,14 @@
+{
+	"description": "<p>Telewizjada - Telewizja na zywo</p><p>More info at <a href=\"https://github.com/pisek/showtime-plugin-telewizjada\">https://github.com/pisek/showtime-plugin-telewizjada</a> and <a href=\"http://www.telewizjada.net\">http://www.telewizjada.net</a>",
+	"author": "pisek", 
+	"homepage": "https://github.com/pisek/showtime-plugin-telewizjada",
+	"title": "Telewizjada",
+	"synopsis": "Telewizjada - Telewizja na zywo",
+	"version": "0.0.1",
+	"file": "telewizjada.js",
+	"showtimeVersion": "4.99.211",
+	"type": "ecmascript",
+	"id": "telewizjada",
+	"icon": "logo.png",
+	"category": "video"
+}
