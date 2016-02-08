@@ -25,6 +25,8 @@
     var BACKGROUND = plugin.path + "views/img/background.jpg";
 	
 	var BASE_URL = "http://www.telewizjada.net";
+	var BASE_ID_PREFIX = "2014tv";
+	var MAX_DESC_LENGHT = 180;
     
     var blue = '6699CC', orange = 'FFA500', red = 'EE0000', green = '008B45', yellow = 'FFFF00';
 
@@ -47,6 +49,26 @@
     }
 	
 	var service = plugin.createService(plugin.getDescriptor().title, PREFIX + ":start", "video", true, LOGO);
+	
+	var settings = plugin.createSettings(plugin.getDescriptor().title, LOGO, plugin.getDescriptor().synopsis);
+	
+    settings.createBool('showEpg', "Show EPG page", false,
+    	function(v) {
+            service.showEpg = v;
+    	}
+	);
+	
+    settings.createBool('showAdult', "Show Adult streams", false,
+    	function(v) {
+            service.showAdult = v;
+    	}
+	);
+	
+    settings.createBool('showCategories', "Show TV categories (TODO)", false,
+    	function(v) {
+            service.showCategories = v;
+    	}
+	);
 
 	function d(c) {
 		print(JSON.stringify(c, null, 4));
@@ -60,24 +82,75 @@
 		page.contents = "movies";
 		
 		var c = showtime.httpReq(BASE_URL + '/get_channels.php');	
-		var channels = JSON.parse(c).channels;
-		//d(channels);
+		var out = JSON.parse(c);
+		//d(out);
 		
-		for (i in channels) {
-			//d(channels[i]);
+		if (!service.showCategories) {
+			showChannels(page, out.channels);
+		} else {
 			
-			page.appendItem(PREFIX + ':video:' + channels[i].id + ':' + channels[i].url + ':' + channels[i].displayName, 'video', {
-				title : channels[i].displayName,
-				icon : BASE_URL + channels[i].thumb,
-				description : channels[i].description
-			});
+			// TODO
+			//out.categories
 			
 		}
 		
 		page.loading = false;
 	});
-    
-    plugin.addURI(PREFIX + ":video:(.*):(.*):(.*)", function(page, id, url, title) {
+	
+	plugin.addURI(PREFIX + ":category:(.*)", function(page, category) {
+		setPageHeader(page, title);
+		page.loading = true;
+		
+		page.type = "directory";
+		page.contents = "movies";
+		
+		var c = showtime.httpReq(BASE_URL + '/get_channels.php');	
+		var out = JSON.parse(c);
+		
+		showChannels(page, findElement(out.categories, 'Categoryid', category).Categorychannels);
+		
+		page.loading = false;
+	});
+	
+	plugin.addURI(PREFIX + ":epg:(.*):(.*):(.*):(.*)", function(page, id, url, title, name) {
+		setPageHeader(page, title);
+		page.loading = true;
+		
+		page.type = "directory";
+		page.contents = "movies";
+		
+		page.appendItem(PREFIX + ':tv:' + id + ':' + url + ':' + title + ':' + name, 'video', {
+			title : 'Watch ' + title,
+		});
+		
+		page.appendItem("", "separator", {
+            title: 'Epg'
+        });
+		
+		var c = showtime.httpReq(BASE_URL + '/get_epg.php', {
+		    postdata: {
+                'channelname': name.split(BASE_ID_PREFIX)[1]
+            }
+		});
+		
+		var epg = JSON.parse(c);
+		for (e in epg) {
+			
+			var duration = epg[e].endtime - epg[e].starttime;
+			var startTime = new Date(epg[e].starttime*1000);
+			var fontColor = epg[e].attime ? green : orange;
+			
+			page.appendPassiveItem('video', null, {
+				title : new showtime.RichText(colorStr(getTime(startTime) + ' - ' + epg[e].title, fontColor)),
+				description : epg[e].description,
+				duration : duration
+			});
+		}
+		
+		page.loading = false;
+	});
+	
+    plugin.addURI(PREFIX + ":tv:(.*):(.*):(.*):(.*)", function(page, id, url, title, name) {
 		setPageHeader(page, "Searching...");
 		page.loading = true;
 		
@@ -99,6 +172,17 @@
         
 		var videoUrl = JSON.parse(c).url;
         //d(videoUrl);
+		
+		var c = showtime.httpReq(BASE_URL + '/get_epg.php', {
+		    postdata: {
+                'channelname': name.split(BASE_ID_PREFIX)[1]
+            }
+		});
+		var current = JSON.parse(c)[0];
+		if (current) {
+			title = title + " - " + current.title;
+		}
+		d(title);
         
 		metadata.title = title;
 		metadata.sources = [{ url: videoUrl, bitrate: 500 }];
@@ -111,5 +195,51 @@
 		page.type = "video";
         
     });
-    
+	
+	function findElement(arr, propName, propValue) {
+		for (i in arr) {
+			if (arr[i][propName] == propValue) {
+				return arr[i];
+			}
+		}
+
+	  // will return undefined if not found; you could return a default instead
+	}
+	
+	function showChannels(page, channels) {
+	
+		var nextSite = service.showEpg ? 'epg' : 'tv';
+		
+		for (i in channels) {
+			//d(channels[i]);
+			
+			if (channels[i].enabled && channels[i].online) {
+				
+				if (!service.showAdult && channels[i].isAdult) {
+					continue;
+				}
+				
+				page.appendItem(PREFIX + ':' + nextSite + ':' + channels[i].id + ':' + channels[i].url + ':' + channels[i].displayName + ':' + channels[i].name, 'video', {
+					title : channels[i].displayName,
+					icon : BASE_URL + channels[i].thumb,
+					description : channels[i].description
+				});
+				
+			}
+			
+		}
+	
+	}
+	
+	function getTime(date) {
+		return date.getHours() + ':' + addZero(date.getMinutes());
+	}
+	
+	function addZero(i) {
+		if (i < 10) {
+			i = "0" + i;
+		}
+		return i;
+	}
+	
 })(this);
