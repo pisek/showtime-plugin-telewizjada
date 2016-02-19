@@ -130,7 +130,9 @@
 		var c = showtime.httpReq(BASE_URL + '/get_epg.php', {
 		    postdata: {
                 'channelname': name.split(BASE_ID_PREFIX)[1]
-            }
+            },
+            caching: true,
+            cacheTime: 1800
 		});
 		
 		var epg = JSON.parse(c);
@@ -176,8 +178,11 @@
 		var c = showtime.httpReq(BASE_URL + '/get_epg.php', {
 		    postdata: {
                 'channelname': name.split(BASE_ID_PREFIX)[1]
-            }
+            },
+            caching: true,
+            cacheTime: 1800
 		});
+		
 		var current = JSON.parse(c)[0];
 		if (current) {
 			title = title + " - " + current.title;
