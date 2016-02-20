@@ -63,6 +63,12 @@
             service.showAdult = v;
     	}
 	);
+
+	settings.createInt('epgAdjust', 'Adjust hour of EPG (PS3 timezone does not work in EPG)', 0, -12, 12, 1, 'h',
+		function(v) {
+            service.epgAdjust = v;
+    	}
+	);
 	
     settings.createBool('showCategories', "Show TV categories (TODO)", false,
     	function(v) {
@@ -140,6 +146,7 @@
 			
 			var duration = epg[e].endtime - epg[e].starttime;
 			var startTime = new Date(epg[e].starttime*1000);
+			adjustTime(startTime, service.epgAdjust);
 			var fontColor = epg[e].attime ? green : orange;
 			
 			page.appendPassiveItem('video', null, {
@@ -234,6 +241,10 @@
 			
 		}
 	
+	}
+	
+	function adjustTime(date, h) {
+		date.setTime(date.getTime() + (h*60*60*1000) );
 	}
 	
 	function getTime(date) {
