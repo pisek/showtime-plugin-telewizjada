@@ -4,7 +4,7 @@
 	"homepage": "https://github.com/pisek/showtime-plugin-telewizjada",
 	"title": "Telewizjada",
 	"synopsis": "Telewizjada - Telewizja na zywo",
-	"version": "0.0.4",
+	"version": "0.0.5",
 	"file": "telewizjada.js",
 	"showtimeVersion": "4.99.211",
 	"type": "ecmascript",

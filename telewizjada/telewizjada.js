@@ -87,9 +87,8 @@
 		page.type = "directory";
 		page.contents = "movies";
 		
-		var c = showtime.httpReq(BASE_URL + '/get_channels.php');	
-		var out = JSON.parse(c);
-		//d(out);
+		var out = getChannels();
+		d(out);
 		
 		if (!service.showCategories) {
 			showChannels(page, out.channels);
@@ -110,7 +109,7 @@
 		page.type = "directory";
 		page.contents = "movies";
 		
-		var c = showtime.httpReq(BASE_URL + '/get_channels.php');	
+		var c = showtime.httpReq(BASE_URL + '/get_channels.php');
 		var out = JSON.parse(c);
 		
 		showChannels(page, findElement(out.categories, 'Categoryid', category).Categorychannels);
@@ -118,14 +117,14 @@
 		page.loading = false;
 	});
 	
-	plugin.addURI(PREFIX + ":epg:(.*):(.*):(.*):(.*)", function(page, id, url, title, name) {
+	plugin.addURI(PREFIX + ":epg:(.*):(.*)", function(page, id, title) {
 		setPageHeader(page, title);
 		page.loading = true;
 		
 		page.type = "directory";
 		page.contents = "movies";
 		
-		page.appendItem(PREFIX + ':tv:' + id + ':' + url + ':' + title + ':' + name, 'video', {
+		page.appendItem(PREFIX + ':tv:' + id + ':' + title, 'video', {
 			title : 'Watch ' + title,
 		});
 		
@@ -133,15 +132,10 @@
             title: 'Epg'
         });
 		
-		var c = showtime.httpReq(BASE_URL + '/get_epg.php', {
-		    postdata: {
-                'channelname': name.split(BASE_ID_PREFIX)[1]
-            },
-            caching: true,
-            cacheTime: 1800
-		});
+		var c = getMainChannel(id);
+		var name = c.name;
 		
-		var epg = JSON.parse(c);
+		var epg = getEpg(name.split(BASE_ID_PREFIX)[1])
 		for (e in epg) {
 			
 			var duration = epg[e].endtime - epg[e].starttime;
@@ -159,46 +153,26 @@
 		page.loading = false;
 	});
 	
-    plugin.addURI(PREFIX + ":tv:(.*):(.*):(.*):(.*)", function(page, id, url, title, name) {
+    plugin.addURI(PREFIX + ":tv:(.*):(.*)", function(page, id, title) {
 		setPageHeader(page, "Searching...");
 		page.loading = true;
 		
 		var metadata = {};
+		
+		var c = getMainChannel(id);
+		var url = c.url;
+		setCookie(c.url);
         					  			 	   
-		var c = showtime.httpReq(BASE_URL + '/set_cookie.php', {
-		    postdata: {
-                'url': url
-            }
-		});	
-		//d(c);						   				 	     		   		 								   	   
-																												   								   				 	     		   		 								   	   
-        var c = showtime.httpReq(BASE_URL + '/get_channel_url.php', {
-		    postdata: {
-                'cid': id
-            }
-		});
-        //d(c.toString());
+		var c = getChannelUrl(id);
+		var videoUrl = c.url;
         
-		var videoUrl = JSON.parse(c).url;
         //d(videoUrl);
 		
-		var c = showtime.httpReq(BASE_URL + '/get_epg.php', {
-		    postdata: {
-                'channelname': name.split(BASE_ID_PREFIX)[1]
-            },
-            caching: true,
-            cacheTime: 1800
-		});
-		
-		var current = JSON.parse(c)[0];
-		if (current) {
-			title = title + " - " + current.title;
-		}
 		d(title);
         
 		metadata.title = title;
 		metadata.sources = [{ url: videoUrl, bitrate: 500 }];
-		metadata.canonicalUrl = PREFIX + ":video:" + id + ':' + url + ':' + title;
+		metadata.canonicalUrl = PREFIX + ":tv:" + id + ':' + title;
 		metadata.no_fs_scan = true;
 		//d(metadata);
 		setPageHeader(page, title);
@@ -207,6 +181,56 @@
 		page.type = "video";
         
     });
+    
+	function getEpg(name) {
+		var c = showtime.httpReq(BASE_URL + '/get_epg.php', {
+		    postdata: {
+                'channelname': name
+            },
+            caching: true,
+            cacheTime: 1800
+		});
+		return JSON.parse(c);
+	}
+    
+    function getChannels() {
+        var c = showtime.httpReq(BASE_URL + '/get_channels.php', {
+		    postdata: {},
+            caching: true,
+            cacheTime: 1800
+		});
+		return JSON.parse(c);
+    }
+    
+    function getChannelUrl(id) {
+        var c = showtime.httpReq(BASE_URL + '/get_channel_url.php', {
+		    postdata: {
+                'cid': id
+            }
+		});
+        //d(c.toString());
+        return JSON.parse(c);
+    }
+    
+    function setCookie(url) {
+		var c = showtime.httpReq(BASE_URL + '/set_cookie.php', {
+		    postdata: {
+                'url': url
+            }
+		});	
+		//d(c);	
+    }
+    
+    function getMainChannel(id) {
+		var c = showtime.httpReq(BASE_URL + '/get_mainchannel.php', {
+		    postdata: {
+                'cid': id
+            },
+            caching: true,
+            cacheTime: 1800
+		});
+		return JSON.parse(c);
+    }
 	
 	function findElement(arr, propName, propValue) {
 		for (i in arr) {
@@ -225,16 +249,15 @@
 		for (i in channels) {
 			//d(channels[i]);
 			
-			if (channels[i].enabled && channels[i].online) {
+			if (channels[i].online) {
 				
 				if (!service.showAdult && channels[i].isAdult) {
 					continue;
 				}
 				
-				page.appendItem(PREFIX + ':' + nextSite + ':' + channels[i].id + ':' + channels[i].url + ':' + channels[i].displayName + ':' + channels[i].name, 'video', {
+				page.appendItem(PREFIX + ':' + nextSite + ':' + channels[i].id + ':' + channels[i].displayName, 'video', {
 					title : channels[i].displayName,
-					icon : BASE_URL + channels[i].thumb,
-					description : channels[i].description
+					icon : BASE_URL + channels[i].thumb
 				});
 				
 			}
